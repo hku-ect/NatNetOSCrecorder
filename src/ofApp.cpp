@@ -19,7 +19,7 @@ void ofApp::setup(){
     //create the socket and bind to port 11999
     ofxUDPSettings settings;
     settings.receiveOn(PORT);
-    settings.blocking = true;
+    settings.blocking = false;
     
     udpConnection.Setup(settings);
     
@@ -27,11 +27,6 @@ void ofApp::setup(){
     
     sett.sendTo("127.0.0.1", 7777);
     udpSender.Setup(sett);
-
-    
-   
-
-    
     
     // SETUP GUI
     ImGui::CreateContext();
@@ -51,7 +46,10 @@ void ofApp::setup(){
     
     guiVisible = true;
     isRecording = false;
-
+    
+    // OSC playback
+    isPlaying = false;
+    counter = 0;
 
 }
 
@@ -59,30 +57,88 @@ void ofApp::setup(){
 void ofApp::update(){
     
     
-    char udpMessage[100000];
-    int size = udpConnection.Receive(udpMessage,100000);
+    int packetSize = 1000;
+    char udpMessage[packetSize];
+    // as advised here: https://forum.openframeworks.cc/t/receiving-a-udp-broadcast/16781/5
+    memset(udpMessage,0,sizeof(udpMessage));
     
-    ofLogNotice(ofToString(size));
+    // recieve is blocking so no if no message is recieved nothing happens
+    int size = udpConnection.Receive(udpMessage,packetSize);
     
-    string message=udpMessage;
-    if(message!=""){
-        ofLogNotice(message);
-    }
+    cout << SOCKET_TIMEOUT << " size: " << size << endl;
     
-    udpSender.Send(udpMessage,size);
+    // --> stop char array's in vector
+    // --> dump vector op de harde schijf. 
     
     
-    /*
-    // check for waiting messages
-    while(receiver.hasWaitingMessages()){
+    // check for content only send if there is a message
+    if(size != 0 && size != -1)
+    {
         
-        // get the next message
-        ofxOscMessage m;
-        receiver.getNextMessage(m);
-        recordOSC(m);
+        // print bytes
+        /*
+        std::cout << "Packet Size: " << size << std::endl;
+        std::cout << "UDP Packet: " << std::endl;
+        for(int i = 0; i < size; i++) {
+            printf("0x%02X \n", (unsigned char)udpMessage[i]);
+        }
+        */
+        
+        
+        // convert bytes to string
+        //std::string s( reinterpret_cast<char const*>(udpMessage), size ) ;
+        //cout << "string: " << s << endl;
+        
+        // send the messag through to another ip/port
+        //udpSender.Send(udpMessage,size);
+        
+        // record message to vector
+        if(isRecording){
+            
+            ofLogNotice("Packet Size: "+ofToString(size));
+            
+            // output the udp message to the console
+            string msg = udpMessage;
+            cout << "RECORDING: "<< msg << endl;
+            
+            oscMessageStruct message;
+            message.size = size;
+            message.timestamp = ofGetUnixTime();
+            message.data = udpMessage;
+            
+            // add message to vector
+            udpMessages.push_back(message);
+        }
     }
-    */
+    
+    if(isPlaying == true && isRecording == false){
+        
+        
+        ofLogNotice("Send: "+ofToString(counter)+" / "+ofToString(udpMessages.size()));
+        
+        // output the udp message to the console
+        cout << "PLAYBACK: " << udpMessages[counter].timestamp << udpMessages[counter].size << " " << udpMessages[counter].data << endl;
 
+        // sent the messages
+        udpSender.Send(udpMessages[counter].data,udpMessages[counter].size);
+        
+        
+        // Step through the recorded array
+        counter ++;
+        if(counter >= udpMessages.size()) counter = 0;
+    }
+    
+    
+   
+    
+    // save to disk
+    // https://stackoverflow.com/questions/19195306/c-best-way-to-store-arrays-or-vectors-of-objects-on-disk-for-a-simple-database
+    // https://openframeworks.cc/learning/01_basics/how_to_save_a_file/
+    
+
+   
+    
+    
     
     doGui();
 
@@ -155,13 +211,22 @@ void ofApp::setRecord(){
     if(isRecording == true){
         ofLogNotice("STOP Recording and save");
         
-        map<int,ofxOscMessage>::iterator it;
-        for (it=OSCframes.begin(); it!=OSCframes.end(); ++it){
-            // it->first contains the key
-            cout << " this is the key " << it->first << endl;
-            // it->second contains the value
-            //it->second;
+        ofLogNotice("size: "+ofToString(udpMessages.size()));
+        
+        ofstream myFile;
+        myFile.open (ofToDataPath("oscrecording.bin"), ios::out | ios::binary);
+        if (myFile.is_open())
+        {
+            for(int i=0;i<udpMessages.size();i++)
+            {
+                myFile.write (udpMessages[i].data, udpMessages[i].size);
+                cout << "WRITE: " << udpMessages[i].timestamp <<" " << udpMessages[i].size << " " << udpMessages[i].data << endl;
+            }
         }
+        myFile.close();
+        
+        
+       
     }
     else if(isRecording == false){
         ofLogNotice("START Recording");
@@ -173,16 +238,6 @@ void ofApp::setRecord(){
     
 }
 
-void ofApp::recordOSC(ofxOscMessage m){
-    
-    if(isRecording){
-        // use global bundle
-        ofLogNotice(ofGetTimestampString()+" "+ofToString(ofGetSystemTimeMillis()));
-        
-        // recordBundle
-        OSCframes[ofGetSystemTimeMillis()] = m;
-    }
-}
 
 static bool version_popup = false;
 
@@ -223,6 +278,12 @@ void ofApp::doGui() {
         if ( ImGui::Button(ICON_FA_PLAY_CIRCLE " Record OSC") )
         {
             setRecord();
+        }
+        
+        if ( ImGui::Button(ICON_FA_PLAY_CIRCLE " Play last OSC recording") )
+        {
+            isPlaying = !isPlaying;
+            ofLogNotice("Play status is: "+ofToString(isPlaying));
         }
         
         ImGui::Spacing();

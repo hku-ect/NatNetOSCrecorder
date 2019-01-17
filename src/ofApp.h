@@ -9,6 +9,13 @@
 // listening port
 #define PORT 6000
 
+struct oscMessageStruct
+{
+    int size;
+    int timestamp;
+    char* data;
+};
+
 
 class ofApp : public ofBaseApp{
 
@@ -31,11 +38,12 @@ class ofApp : public ofBaseApp{
     
         //OSC recording
         void setRecord();
-        void recordOSC(ofxOscMessage m);
         bool isRecording;
-        ofxOscBundle recordBundle;
-        //map<int, ofxOscBundle> OSCframes;
-        map<int, ofxOscMessage> OSCframes;
+        bool isPlaying;
+        std::vector<oscMessageStruct> udpMessages;
+        int counter;
+    
+
     
         ofxOscReceiver receiver;
         ofxUDPManager udpConnection;
