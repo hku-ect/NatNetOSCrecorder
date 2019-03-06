@@ -4,6 +4,13 @@
 
 static const ImWchar icon_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
 
+// TODO: save recording to diks
+// TODO: playback recording from disk
+// TDOD: ability to make multiple recordings
+// TODO: make gui and logic to select port  / ip / network interface
+
+// DOING: save osc messages to file
+
 //--------------------------------------------------------------
 void ofApp::setup(){
     
@@ -11,9 +18,10 @@ void ofApp::setup(){
     ofSetFrameRate(30); // run at 60 fps
     ofSetVerticalSync(true);
     
+    recordingDir = "oscRecordings";
+    
     // listen on the given port
     ofLog() << "listening for osc messages on port " << PORT;
-    //receiver.setup(PORT);
     
     // SETUP UDP
     //create the socket and bind to port 11999
@@ -50,6 +58,17 @@ void ofApp::setup(){
     // OSC playback
     isPlaying = false;
     counter = 0;
+    
+    // File listing
+    dir.listDir(recordingDir);
+    dir.allowExt(".bin");
+    dir.sort(); // in linux the file system doesn't return file lists ordered in alphabetical order
+    
+    files = dir.getFiles();
+    for(size_t i=0; i<files.size(); i++)
+    {
+        fileNames.push_back(files[i].getFileName());
+    }
 
 }
 
@@ -65,31 +84,12 @@ void ofApp::update(){
     // recieve is blocking so no if no message is recieved nothing happens
     int size = udpConnection.Receive(udpMessage,packetSize);
     
-    cout << SOCKET_TIMEOUT << " size: " << size << endl;
-    
-    // --> stop char array's in vector
-    // --> dump vector op de harde schijf. 
-    
     
     // check for content only send if there is a message
     if(size != 0 && size != -1)
     {
         
-        // print bytes
-        /*
-        std::cout << "Packet Size: " << size << std::endl;
-        std::cout << "UDP Packet: " << std::endl;
-        for(int i = 0; i < size; i++) {
-            printf("0x%02X \n", (unsigned char)udpMessage[i]);
-        }
-        */
-        
-        
-        // convert bytes to string
-        //std::string s( reinterpret_cast<char const*>(udpMessage), size ) ;
-        //cout << "string: " << s << endl;
-        
-        // send the messag through to another ip/port
+          // send the messag through to another ip/port
         //udpSender.Send(udpMessage,size);
         
         // record message to vector
@@ -101,18 +101,29 @@ void ofApp::update(){
             string msg = udpMessage;
             cout << "RECORDING: "<< msg << endl;
             
+            // create oscMessage object to add to vector
             oscMessageStruct message;
             message.size = size;
             message.timestamp = ofGetUnixTime();
-            message.data = udpMessage;
+            
+            // allocate size for the udpmessage
+            message.data = new char[size];
+            
+            // copy message
+            memcpy(message.data, udpMessage, size);
             
             // add message to vector
             udpMessages.push_back(message);
+            
+            // print bytes to console
+            //printUDPpacket(udpMessage);
+            
         }
     }
     
-    if(isPlaying == true && isRecording == false){
-        
+    // Playback recorded UDP messages
+    // only if: we are not recording we have recorded something.
+    if(isPlaying == true && isRecording == false ){
         
         ofLogNotice("Send: "+ofToString(counter)+" / "+ofToString(udpMessages.size()));
         
@@ -126,6 +137,7 @@ void ofApp::update(){
         // Step through the recorded array
         counter ++;
         if(counter >= udpMessages.size()) counter = 0;
+      
     }
     
     
@@ -148,6 +160,49 @@ void ofApp::update(){
 void ofApp::draw(){
     
     if ( this->guiVisible ) { gui.draw(); }
+    
+    for(int i = 0; i < (int)dir.size(); i++){
+        string fileInfo = ofToString(i + 1) + " = " + dir.getName(i);
+        ofDrawBitmapString(fileInfo, 400,i * 20 + 50);
+    }
+
+}
+
+//--------------------------------------------------------------
+void ofApp::printUDPpacket(char* packet){
+    
+    // print bytes
+    int size = sizeof(packet);
+    
+    std::cout << "Packet Size: " << size << std::endl;
+    std::cout << "UDP Packet: " << std::endl;
+    for(int i = 0; i < size; i++) {
+        printf("0x%02X \n", (unsigned char)packet[i]);
+    }
+    cout << "end packet" << endl;
+    cout << "-----------------------------" << endl;
+
+    
+}
+
+//--------------------------------------------------------------
+void ofApp::loadRecording(int index){
+    
+    ofLog() << " VectorListBox FILE PATH: "  << files[index].getAbsolutePath();
+    
+    // load file in vector ?
+    // TODO: read input from file as UDP message
+    cout << " read file " << endl;
+    string line;
+    ifstream myfile (files[index].getAbsolutePath());
+    if (myfile.is_open())
+    {
+        while ( getline (myfile,line) )
+        {
+            cout << line << '\n';
+        }
+        myfile.close();
+    }
 
 }
 
@@ -211,25 +266,50 @@ void ofApp::setRecord(){
     if(isRecording == true){
         ofLogNotice("STOP Recording and save");
         
-        ofLogNotice("size: "+ofToString(udpMessages.size()));
+        string fileName = recordingDir+"/oscrecording_"+ofToString(ofGetUnixTime())+".bin";
+        
+        ofLogNotice("file: "+fileName+" size: "+ofToString(udpMessages.size()));
+        
+        // Status: we are saving to file, but only zero's
+        // somthing worn with data copy?
         
         ofstream myFile;
-        myFile.open (ofToDataPath("oscrecording.bin"), ios::out | ios::binary);
+        myFile.open (ofToDataPath(fileName), ios::out | ios::binary);
         if (myFile.is_open())
         {
+            //myFile.write(udpMessages[0].data,udpMessages[0].size);
+            
+            
+            cout << "sending UDP messages" << endl;
             for(int i=0;i<udpMessages.size();i++)
             {
-                myFile.write (udpMessages[i].data, udpMessages[i].size);
-                cout << "WRITE: " << udpMessages[i].timestamp <<" " << udpMessages[i].size << " " << udpMessages[i].data << endl;
+                 myFile.write (udpMessages[i].data, udpMessages[i].size);
+                //udpSender.Send(udpMessages[i].data,udpMessages[i].size);
+                //cout << "SEND: " << udpMessages[i].timestamp <<" " << udpMessages[i].size << endl;
+            
+                // print bytes to console
+                printUDPpacket(udpMessages[i].data);
+
             }
+
+            
         }
+        // close file
+        myFile.flush();
         myFile.close();
+        cout << "file closed" << endl;
         
+        //update file listing
+        dir.listDir(recordingDir);
+        dir.allowExt(".bin");
+        dir.sort(); // in linux the file system doesn't return file lists ordered in alphabetical order
         
-       
     }
     else if(isRecording == false){
         ofLogNotice("START Recording");
+        // clear vector before we start recording a new one
+        udpMessages.clear();
+
     }
     
     
@@ -282,13 +362,31 @@ void ofApp::doGui() {
         
         if ( ImGui::Button(ICON_FA_PLAY_CIRCLE " Play last OSC recording") )
         {
-            isPlaying = !isPlaying;
-            ofLogNotice("Play status is: "+ofToString(isPlaying));
+            if(udpMessages.size() > 0){
+                isPlaying = !isPlaying;
+                ofLogNotice("Play status is: "+ofToString(isPlaying));
+            }
+            else
+            {
+                ofLogWarning("No recording present so, Nothing to playback!");
+            }
         }
         
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
+        
+        //ofxImGui::VectorListBox allows for the use of a vector<string> as a data source
+        static int currentListBoxIndex = 0;
+        if(ofxImGui::VectorListBox("VectorListBox", &currentListBoxIndex, fileNames))
+        {
+            // Load file
+            loadRecording(currentListBoxIndex);
+        }
+        
+        
+        
+        
         ImGui::End();
         
                

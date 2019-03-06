@@ -35,20 +35,25 @@ class ofApp : public ofBaseApp{
 		void windowResized(int w, int h);
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
+        void printUDPpacket(char* packet);
     
         //OSC recording
         void setRecord();
+        void loadRecording(int index);
         bool isRecording;
         bool isPlaying;
         std::vector<oscMessageStruct> udpMessages;
         int counter;
     
-
-    
         ofxOscReceiver receiver;
         ofxUDPManager udpConnection;
         ofxUDPManager udpSender;
-        
+    
+        //File display
+        ofDirectory dir;
+        string recordingDir;
+        std::vector<std::string> fileNames;
+        std::vector<ofFile> files;
     
         //GUI
         ofxImGui::Gui gui;
