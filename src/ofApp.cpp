@@ -8,11 +8,30 @@ static const ImWchar icon_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
 // TODO: playback recording from disk
 // TDOD: ability to make multiple recordings
 // TODO: make gui and logic to select port  / ip / network interface
+// TODO: refresh recording list after recording
 
 // DOING: save osc messages to file
 
+
+/*
+ Reading Writeing:
+ http://www.cplusplus.com/forum/beginner/149195/
+ https://stackoverflow.com/questions/4300173/reading-and-writing-a-vector-of-structs-to-file
+ http://www.cplusplus.com/articles/DzywvCM9/
+ https://isocpp.org/wiki/faq/serialization#serialize-overview --> serialisation
+ https://www.geeksforgeeks.org/readwrite-structure-file-c/ --> read/write in c
+ 
+ 
+ 
+ */
+
 //--------------------------------------------------------------
+
+
+
 void ofApp::setup(){
+    
+    count = 0;
     
     ofSetWindowTitle("oscRecorder");
     ofSetFrameRate(30); // run at 60 fps
@@ -95,28 +114,20 @@ void ofApp::update(){
         // record message to vector
         if(isRecording){
             
-            ofLogNotice("Packet Size: "+ofToString(size));
+            //ofLogNotice("Update :: Packet Size: "+ofToString(size));
             
             // output the udp message to the console
             string msg = udpMessage;
-            cout << "RECORDING: "<< msg << endl;
+            cout << "RECORDING: "<< count << "msg: " << msg << endl;
             
-            // create oscMessage object to add to vector
-            oscMessageStruct message;
-            message.size = size;
-            message.timestamp = ofGetUnixTime();
             
-            // allocate size for the udpmessage
-            message.data = new char[size];
+            //cout << "Update :: " << endl;
+            //printUDPpacket(udpMessage,size);
             
-            // copy message
-            memcpy(message.data, udpMessage, size);
+            // Ad message to messages array to store on disk
+            addMessageToArray(udpMessage, size);
+            count ++;
             
-            // add message to vector
-            udpMessages.push_back(message);
-            
-            // print bytes to console
-            //printUDPpacket(udpMessage);
             
         }
     }
@@ -169,12 +180,13 @@ void ofApp::draw(){
 }
 
 //--------------------------------------------------------------
-void ofApp::printUDPpacket(char* packet){
+void ofApp::printUDPpacket(char* packet, int size){
     
-    // print bytes
-    int size = sizeof(packet);
+  
     
     std::cout << "Packet Size: " << size << std::endl;
+    
+
     std::cout << "UDP Packet: " << std::endl;
     for(int i = 0; i < size; i++) {
         printf("0x%02X \n", (unsigned char)packet[i]);
@@ -193,17 +205,88 @@ void ofApp::loadRecording(int index){
     // load file in vector ?
     // TODO: read input from file as UDP message
     cout << " read file " << endl;
-    string line;
-    ifstream myfile (files[index].getAbsolutePath());
-    if (myfile.is_open())
+    //char* line;
+    //ifstream myfile (files[index].getAbsolutePath());
+    
+    // clear udpmessages array
+    udpMessages.clear();
+    
+    int sizeOfVector;
+    
+    std::vector<oscMessageStruct> input;
+    std::ifstream infile (files[index].getAbsolutePath(), std::ifstream::binary);
+    
+    // read what number of elements is
+    infile.read(reinterpret_cast<char*>(&sizeOfVector), sizeof(u_int32_t));
+    
+    for(int i=0;i<sizeOfVector;i++)
     {
-        while ( getline (myfile,line) )
-        {
-            cout << line << '\n';
-        }
-        myfile.close();
+        int sizeOfMessage;
+        int timeStamp;
+        char* message;
+        
+        oscMessageStruct entry;
+        
+        
+        infile.read(reinterpret_cast<char*>(&entry.size), sizeof(u_int32_t));
+        infile.read(reinterpret_cast<char*>(&entry.timestamp), sizeof(u_int32_t));
+        
+        //memset(entry.data,0,);
+        entry.data = new char[entry.size];
+        infile.read(entry.data, entry.size);
+        
+        udpMessages.push_back(entry);
+        
+        /*
+        infile.read(reinterpret_cast<char*>(&sizeOfMessage), sizeof(u_int32_t));
+        infile.read(reinterpret_cast<char*>(&timeStamp), sizeof(u_int32_t));
+        infile.read(message, sizeOfMessage);
+         */
+    
     }
+    
+    
 
+    
+    
+    //infile.read(reinterpret_cast<char*>(&input), sizeof(oscMessageStruct) * 10);
+    
+    // read file contents till end of file
+    /*
+    while(infile.read((char*) input, sizeof(oscMessageStruct)))
+        printf ("size = %d timestamp = %d %s\n", input.size,
+                input.timestamp, input.data);
+    */
+    // close file
+    infile.close();
+    
+    cout << "sizeOfVector: " << udpMessages.size() << endl;
+    
+
+}
+
+//--------------------------------------------------------------
+void ofApp::addMessageToArray(char* packet, int size){
+    
+    
+    // create oscMessage object to add to vector
+    oscMessageStruct message;
+    message.size = size;
+    message.timestamp = ofGetUnixTime();
+    
+    // allocate size for the udpmessage
+    message.data = new char[size];
+    
+    // copy message
+    memcpy(message.data, packet, size);
+    
+    // add message to vector
+    udpMessages.push_back(message);
+    
+    // print bytes to console
+    cout <<" addMessageToArray: " << endl;
+    printUDPpacket(packet,size);
+    
 }
 
 //--------------------------------------------------------------
@@ -261,6 +344,19 @@ void ofApp::dragEvent(ofDragInfo dragInfo){
 
 }
 
+
+void ofApp::SerializeInt32(char (&buf)[4], u_int32_t val)
+{
+    std::memcpy(buf, &val, 4);
+}
+
+u_int32_t ofApp:: ParseInt32(const char (&buf)[4])
+{
+    u_int32_t val;
+    std::memcpy(&val, buf, 4);
+    return val;
+}
+
 void ofApp::setRecord(){
     
     if(isRecording == true){
@@ -280,18 +376,33 @@ void ofApp::setRecord(){
             //myFile.write(udpMessages[0].data,udpMessages[0].size);
             
             
-            cout << "sending UDP messages" << endl;
+            cout << "#####-----------------------------------------------" << endl;
+            cout << "SAVING UDP messages" << endl;
+            
+            // 1. Write lenght of vector
+            // ---
+            u_int32_t size = udpMessages.size();
+            myFile.write((char*) &size,sizeof(u_int32_t));
+            
+            // 2. write vector entries
             for(int i=0;i<udpMessages.size();i++)
             {
-                 myFile.write (udpMessages[i].data, udpMessages[i].size);
+
+                // write elements ove the vector entry
+                myFile.write((char*)&udpMessages[i].size,sizeof(u_int32_t));
+                myFile.write((char*)&udpMessages[i].timestamp,sizeof(u_int32_t));
+                myFile.write(udpMessages[i].data,udpMessages[i].size);
+                
                 //udpSender.Send(udpMessages[i].data,udpMessages[i].size);
                 //cout << "SEND: " << udpMessages[i].timestamp <<" " << udpMessages[i].size << endl;
             
                 // print bytes to console
-                printUDPpacket(udpMessages[i].data);
-
+                //printUDPpacket(udpMessages[i].data,udpMessages[i].size);
+                
+                cout << "size to save " << sizeof(struct oscMessageStruct) << endl;
+                
             }
-
+            
             
         }
         // close file
@@ -354,12 +465,15 @@ void ofApp::doGui() {
         ImGui::Spacing();
         
         
-        
+        // Toggle OSC recording
+        // FIXME: make a proper toggel button
         if ( ImGui::Button(ICON_FA_PLAY_CIRCLE " Record OSC") )
         {
             setRecord();
         }
         
+        // Play OSC recording
+        // This now sets a boolean isPlaying which loops through udpMessages array when set to true
         if ( ImGui::Button(ICON_FA_PLAY_CIRCLE " Play last OSC recording") )
         {
             if(udpMessages.size() > 0){
@@ -376,10 +490,12 @@ void ofApp::doGui() {
         ImGui::Separator();
         ImGui::Spacing();
         
+        
         //ofxImGui::VectorListBox allows for the use of a vector<string> as a data source
         static int currentListBoxIndex = 0;
         if(ofxImGui::VectorListBox("VectorListBox", &currentListBoxIndex, fileNames))
         {
+            // Is triggered when selecting a file form the list
             // Load file
             loadRecording(currentListBoxIndex);
         }

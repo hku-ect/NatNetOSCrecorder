@@ -11,8 +11,8 @@
 
 struct oscMessageStruct
 {
-    int size;
-    int timestamp;
+    u_int32_t size;
+    u_int32_t timestamp;
     char* data;
 };
 
@@ -35,11 +35,12 @@ class ofApp : public ofBaseApp{
 		void windowResized(int w, int h);
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
-        void printUDPpacket(char* packet);
+        void printUDPpacket(char* packet, int size);
     
         //OSC recording
         void setRecord();
         void loadRecording(int index);
+        void addMessageToArray(char* packet, int size);
         bool isRecording;
         bool isPlaying;
         std::vector<oscMessageStruct> udpMessages;
@@ -48,6 +49,8 @@ class ofApp : public ofBaseApp{
         ofxOscReceiver receiver;
         ofxUDPManager udpConnection;
         ofxUDPManager udpSender;
+    
+        ofXml xml;
     
         //File display
         ofDirectory dir;
@@ -63,5 +66,11 @@ class ofApp : public ofBaseApp{
         ImFont* fontDefault;
         ImFont* fontSubTitle;
         ImFont* fontTitle;
+    
+        void SerializeInt32(char (&buf)[4], u_int32_t val);
+        u_int32_t ParseInt32(const char (&buf)[4]);
+    
+        int count;
+
 		
 };
