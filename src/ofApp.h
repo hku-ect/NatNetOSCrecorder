@@ -57,6 +57,7 @@ class ofApp : public ofBaseApp{
         string recordingDir;
         std::vector<std::string> fileNames;
         std::vector<ofFile> files;
+        void updateFileListing();
     
         //GUI
         ofxImGui::Gui gui;

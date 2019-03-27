@@ -4,17 +4,16 @@
 
 static const ImWchar icon_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
 
-// TODO: save recording to diks
-// TODO: playback recording from disk
-// TDOD: ability to make multiple recordings
-// TODO: make gui and logic to select port  / ip / network interface
-// TODO: refresh recording list after recording
 
-// DOING: save osc messages to file
+// TODO: playback in correct speed
+// TODO: make gui and logic to select port  / ip / network interface
+// TODO: playback part of recording ?
+
 
 
 /*
  Reading Writeing:
+ http://forums.codeguru.com/showthread.php?269648-C-Structure-How-do-I-write-a-structure-to-a-file <-- !!!!!!
  http://www.cplusplus.com/forum/beginner/149195/
  https://stackoverflow.com/questions/4300173/reading-and-writing-a-vector-of-structs-to-file
  http://www.cplusplus.com/articles/DzywvCM9/
@@ -79,16 +78,9 @@ void ofApp::setup(){
     counter = 0;
     
     // File listing
-    dir.listDir(recordingDir);
-    dir.allowExt(".bin");
-    dir.sort(); // in linux the file system doesn't return file lists ordered in alphabetical order
-    
-    files = dir.getFiles();
-    for(size_t i=0; i<files.size(); i++)
-    {
-        fileNames.push_back(files[i].getFileName());
-    }
-
+    dir.open(ofFilePath::getAbsolutePath(recordingDir));
+    dir.allowExt("bin");
+    updateFileListing();
 }
 
 //--------------------------------------------------------------
@@ -151,20 +143,12 @@ void ofApp::update(){
       
     }
     
-    
-   
-    
-    // save to disk
-    // https://stackoverflow.com/questions/19195306/c-best-way-to-store-arrays-or-vectors-of-objects-on-disk-for-a-simple-database
-    // https://openframeworks.cc/learning/01_basics/how_to_save_a_file/
-    
-
-   
-    
-    
-    
+        
     doGui();
-
+    
+    
+   
+    
 }
 
 //--------------------------------------------------------------
@@ -202,66 +186,41 @@ void ofApp::loadRecording(int index){
     
     ofLog() << " VectorListBox FILE PATH: "  << files[index].getAbsolutePath();
     
-    // load file in vector ?
-    // TODO: read input from file as UDP message
-    cout << " read file " << endl;
-    //char* line;
-    //ifstream myfile (files[index].getAbsolutePath());
-    
     // clear udpmessages array
     udpMessages.clear();
     
-    int sizeOfVector;
-    
-    std::vector<oscMessageStruct> input;
+    // read the file
     std::ifstream infile (files[index].getAbsolutePath(), std::ifstream::binary);
     
-    // read what number of elements is
+    // var to store number of messages in file
+    int sizeOfVector;
+    
+    // read number of messages in file
     infile.read(reinterpret_cast<char*>(&sizeOfVector), sizeof(u_int32_t));
     
+    // loop through all the messages in file
     for(int i=0;i<sizeOfVector;i++)
     {
-        int sizeOfMessage;
-        int timeStamp;
-        char* message;
-        
+        // create empty OSCmessageStruct
         oscMessageStruct entry;
         
-        
+        // Read the size of the message
         infile.read(reinterpret_cast<char*>(&entry.size), sizeof(u_int32_t));
+        // Read the timestamp of the message
         infile.read(reinterpret_cast<char*>(&entry.timestamp), sizeof(u_int32_t));
         
-        //memset(entry.data,0,);
+        // set the size of th emessage
         entry.data = new char[entry.size];
+        // read the message
         infile.read(entry.data, entry.size);
         
+        // add entry to vector
         udpMessages.push_back(entry);
         
-        /*
-        infile.read(reinterpret_cast<char*>(&sizeOfMessage), sizeof(u_int32_t));
-        infile.read(reinterpret_cast<char*>(&timeStamp), sizeof(u_int32_t));
-        infile.read(message, sizeOfMessage);
-         */
-    
     }
-    
-    
-
-    
-    
-    //infile.read(reinterpret_cast<char*>(&input), sizeof(oscMessageStruct) * 10);
-    
-    // read file contents till end of file
-    /*
-    while(infile.read((char*) input, sizeof(oscMessageStruct)))
-        printf ("size = %d timestamp = %d %s\n", input.size,
-                input.timestamp, input.data);
-    */
-    // close file
     infile.close();
     
     cout << "sizeOfVector: " << udpMessages.size() << endl;
-    
 
 }
 
@@ -290,12 +249,41 @@ void ofApp::addMessageToArray(char* packet, int size){
 }
 
 //--------------------------------------------------------------
+void ofApp::updateFileListing(){
+    
+    //update file listing
+    dir.listDir();
+    
+    fileNames.clear();
+    files.clear();
+    files = dir.getFiles();
+    for(size_t i=0; i<files.size(); i++)
+    {
+        fileNames.push_back(files[i].getFileName());
+    }
+
+    
+}
+
+//--------------------------------------------------------------
 void ofApp::keyPressed(int key){
 
 }
 
 //--------------------------------------------------------------
 void ofApp::keyReleased(int key){
+    
+    if(key == 'q')
+    {
+        ofDirectory dir;
+        dir.open(ofFilePath::getAbsolutePath(recordingDir));
+        dir.allowExt("bin");
+        int temp = dir.listDir();
+        dir.sort(); // in linux the file system doesn't return file lists ordered in alphabetical order
+        cout << "numFiles: " << temp << " dir: " << dir.getAbsolutePath() << endl;
+        
+        
+    }
 
 }
 
@@ -373,9 +361,6 @@ void ofApp::setRecord(){
         myFile.open (ofToDataPath(fileName), ios::out | ios::binary);
         if (myFile.is_open())
         {
-            //myFile.write(udpMessages[0].data,udpMessages[0].size);
-            
-            
             cout << "#####-----------------------------------------------" << endl;
             cout << "SAVING UDP messages" << endl;
             
@@ -393,17 +378,11 @@ void ofApp::setRecord(){
                 myFile.write((char*)&udpMessages[i].timestamp,sizeof(u_int32_t));
                 myFile.write(udpMessages[i].data,udpMessages[i].size);
                 
-                //udpSender.Send(udpMessages[i].data,udpMessages[i].size);
-                //cout << "SEND: " << udpMessages[i].timestamp <<" " << udpMessages[i].size << endl;
-            
                 // print bytes to console
                 //printUDPpacket(udpMessages[i].data,udpMessages[i].size);
                 
                 cout << "size to save " << sizeof(struct oscMessageStruct) << endl;
-                
             }
-            
-            
         }
         // close file
         myFile.flush();
@@ -411,10 +390,8 @@ void ofApp::setRecord(){
         cout << "file closed" << endl;
         
         //update file listing
-        dir.listDir(recordingDir);
-        dir.allowExt(".bin");
-        dir.sort(); // in linux the file system doesn't return file lists ordered in alphabetical order
-        
+        updateFileListing();
+    
     }
     else if(isRecording == false){
         ofLogNotice("START Recording");
@@ -466,7 +443,7 @@ void ofApp::doGui() {
         
         
         // Toggle OSC recording
-        // FIXME: make a proper toggel button
+        // FIXME: make a proper toggle button
         if ( ImGui::Button(ICON_FA_PLAY_CIRCLE " Record OSC") )
         {
             setRecord();
