@@ -1,0 +1,4 @@
+ofxUnitTests
+ofxNetwork
+ofxOsc
+
