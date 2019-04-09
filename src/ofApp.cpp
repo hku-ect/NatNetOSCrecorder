@@ -37,21 +37,22 @@ void ofApp::setup(){
     ofSetVerticalSync(true);
     
     recordingDir = "oscRecordings";
+    selectedRecoding = "none";
     
     // listen on the given port
-    ofLog() << "listening for osc messages on port " << PORT;
+    ofLog() << "listening for osc messages on port " << INCOMING_PORT;
     
     // SETUP UDP
     //create the socket and bind to port 11999
     ofxUDPSettings settings;
-    settings.receiveOn(PORT);
+    settings.receiveOn(INCOMING_PORT);
     settings.blocking = false;
     
     udpConnection.Setup(settings);
     
     ofxUDPSettings sett;
     
-    sett.sendTo("127.0.0.1", 7777);
+    sett.sendTo(OUTGOING_IP, OUTGOING_PORT);
     udpSender.Setup(sett);
     
     // SETUP GUI
@@ -100,7 +101,7 @@ void ofApp::update(){
     if(size != 0 && size != -1)
     {
         
-          // send the messag through to another ip/port
+        // send the messag through to another ip/port
         //udpSender.Send(udpMessage,size);
         
         // record message to vector
@@ -156,11 +157,14 @@ void ofApp::draw(){
     
     if ( this->guiVisible ) { gui.draw(); }
     
-    for(int i = 0; i < (int)dir.size(); i++){
-        string fileInfo = ofToString(i + 1) + " = " + dir.getName(i);
-        ofDrawBitmapString(fileInfo, 400,i * 20 + 50);
-    }
+    ofDrawBitmapString("Selected OSC recording", 400,70);
+    ofDrawBitmapString(selectedRecoding, 400,100);
+    ofDrawBitmapString("Frame: "+ofToString(counter)+"/"+ofToString(udpMessages.size()), 400,120);
+    
+    
 
+    
+    
 }
 
 //--------------------------------------------------------------
@@ -186,8 +190,13 @@ void ofApp::loadRecording(int index){
     
     ofLog() << " VectorListBox FILE PATH: "  << files[index].getAbsolutePath();
     
+    selectedRecoding = files[index].getFileName();
+    
     // clear udpmessages array
     udpMessages.clear();
+    
+    // set message counter to 0
+    counter = 0;
     
     // read the file
     std::ifstream infile (files[index].getAbsolutePath(), std::ifstream::binary);
@@ -432,8 +441,14 @@ void ofApp::doGui() {
         ImGui::SetNextWindowSize(ImVec2( 350, ofGetHeight()-mainmenu_height));
         ImGui::Begin("rightpanel", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_HorizontalScrollbar);
         
+        
         ImGui::PushFont(fontSubTitle);
-        ImGui::Text("Global Settings");
+        ImGui::Text("General settings:");
+        ImGui::PopFont();
+        ImGui::PushFont(fontDefault);
+        ImGui::Text("incoming OSC port: %s",ofToString(INCOMING_PORT).c_str());
+        ImGui::Text("outgoing OSC port: %s",ofToString(OUTGOING_PORT).c_str());
+        ImGui::Text("outgoing address: %s",ofToString(OUTGOING_IP).c_str());
         ImGui::PopFont();
         
         
@@ -442,12 +457,31 @@ void ofApp::doGui() {
         ImGui::Spacing();
         
         
+        
+        
+        ImGui::PushFont(fontSubTitle);
+        ImGui::Text("Record OSC");
+        ImGui::PopFont();
+        
+        
+        
         // Toggle OSC recording
         // FIXME: make a proper toggle button
         if ( ImGui::Button(ICON_FA_PLAY_CIRCLE " Record OSC") )
         {
             setRecord();
         }
+        
+        
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        
+        ImGui::PushFont(fontSubTitle);
+        ImGui::Text("Play OSC");
+        ImGui::PopFont();
         
         // Play OSC recording
         // This now sets a boolean isPlaying which loops through udpMessages array when set to true
@@ -470,7 +504,7 @@ void ofApp::doGui() {
         
         //ofxImGui::VectorListBox allows for the use of a vector<string> as a data source
         static int currentListBoxIndex = 0;
-        if(ofxImGui::VectorListBox("VectorListBox", &currentListBoxIndex, fileNames))
+        if(ofxImGui::VectorListBox("OSC recordings", &currentListBoxIndex, fileNames))
         {
             // Is triggered when selecting a file form the list
             // Load file

@@ -7,7 +7,9 @@
 #include "ofxNetwork.h"
 
 // listening port
-#define PORT 6000
+#define INCOMING_PORT 6000
+#define OUTGOING_PORT 7777
+#define OUTGOING_IP "127.0.0.1"
 
 struct oscMessageStruct
 {
@@ -67,6 +69,8 @@ class ofApp : public ofBaseApp{
         ImFont* fontDefault;
         ImFont* fontSubTitle;
         ImFont* fontTitle;
+    
+        string selectedRecoding;
     
         void SerializeInt32(char (&buf)[4], u_int32_t val);
         u_int32_t ParseInt32(const char (&buf)[4]);
