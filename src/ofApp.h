@@ -40,7 +40,7 @@ class ofApp : public ofBaseApp{
         void printUDPpacket(char* packet, int size);
     
         //OSC recording
-        void setRecord();
+        void saveRecording();
         void loadRecording(int index);
         void addMessageToArray(char* packet, int size);
         bool isRecording;
@@ -48,10 +48,20 @@ class ofApp : public ofBaseApp{
         std::vector<oscMessageStruct> udpMessages;
         int counter;
     
-        ofxOscReceiver receiver;
-        ofxUDPManager udpConnection;
+        //ofxOscReceiver receiver;
+        ofxUDPManager udpReceiver;
         ofxUDPManager udpSender;
-    
+        void setupOSCRecorder();
+        void processOSCRecorder();
+        void destroyOSCRecorder();
+
+        int messageCount;   // counter for received messages;
+
+        int oscListenPort = 6000;
+        int oscDestPort = 6001;
+        char oscDestHost[200] =  "127.0.0.1";
+
+
         ofXml xml;
     
         //File display
@@ -73,9 +83,5 @@ class ofApp : public ofBaseApp{
         string selectedRecoding;
     
         void SerializeInt32(char (&buf)[4], u_int32_t val);
-        u_int32_t ParseInt32(const char (&buf)[4]);
-    
-        int count;
-
-		
+        u_int32_t ParseInt32(const char (&buf)[4]);		
 };

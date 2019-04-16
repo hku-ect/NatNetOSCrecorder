@@ -30,8 +30,6 @@ static const ImWchar icon_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
 
 void ofApp::setup(){
     
-    count = 0;
-    
     ofSetWindowTitle("oscRecorder");
     ofSetFrameRate(30); // run at 60 fps
     ofSetVerticalSync(true);
@@ -41,15 +39,7 @@ void ofApp::setup(){
     
     // listen on the given port
     ofLog() << "listening for osc messages on port " << INCOMING_PORT;
-    
-    // SETUP UDP
-    //create the socket and bind to port 11999
-    ofxUDPSettings settings;
-    settings.receiveOn(INCOMING_PORT);
-    settings.blocking = false;
-    
-    udpConnection.Setup(settings);
-    
+
     ofxUDPSettings sett;
     
     sett.sendTo(OUTGOING_IP, OUTGOING_PORT);
@@ -84,47 +74,64 @@ void ofApp::setup(){
     updateFileListing();
 }
 
-//--------------------------------------------------------------
-void ofApp::update(){
-    
-    
+void ofApp::setupOSCRecorder()
+{
+    udpMessages.clear();
+    messageCount = 0;
+
+    ofxUDPSettings settings;
+    settings.receiveOn(this->oscListenPort);
+    settings.blocking = false;
+    udpReceiver.Setup(settings);
+}
+
+//  this is a blocking call so no data means the app freezes?
+void ofApp::processOSCRecorder()
+{
     int packetSize = 1000;
     char udpMessage[packetSize];
     // as advised here: https://forum.openframeworks.cc/t/receiving-a-udp-broadcast/16781/5
     memset(udpMessage,0,sizeof(udpMessage));
-    
+
     // recieve is blocking so no if no message is recieved nothing happens
-    int size = udpConnection.Receive(udpMessage,packetSize);
-    
-    
+    int size = udpReceiver.Receive(udpMessage,packetSize);
+
     // check for content only send if there is a message
     if(size != 0 && size != -1)
     {
-        
-        // send the messag through to another ip/port
-        //udpSender.Send(udpMessage,size);
-        
         // record message to vector
         if(isRecording){
-            
+
             //ofLogNotice("Update :: Packet Size: "+ofToString(size));
-            
+
             // output the udp message to the console
             string msg = udpMessage;
-            cout << "RECORDING: "<< count << "msg: " << msg << endl;
-            
-            
+            cout << "RECORDING: "<< messageCount << "msg: " << msg << endl;
+
+
             //cout << "Update :: " << endl;
             //printUDPpacket(udpMessage,size);
-            
-            // Ad message to messages array to store on disk
+
+            // Add message to messages array to store on disk
             addMessageToArray(udpMessage, size);
-            count ++;
-            
-            
+            messageCount++;
         }
     }
+}
+
+void ofApp::destroyOSCRecorder()
+{
+    udpReceiver.Close();
+}
+
+//--------------------------------------------------------------
+void ofApp::update(){
     
+    if ( isRecording )
+    {
+        processOSCRecorder();
+    }
+
     // Playback recorded UDP messages
     // only if: we are not recording we have recorded something.
     if(isPlaying == true && isRecording == false ){
@@ -233,7 +240,7 @@ void ofApp::loadRecording(int index){
 
 }
 
-//--------------------------------------------------------------
+//---------------------------ofToString(udpMessages.size()-----------------------------------
 void ofApp::addMessageToArray(char* packet, int size){
     
     
@@ -354,17 +361,15 @@ u_int32_t ofApp:: ParseInt32(const char (&buf)[4])
     return val;
 }
 
-void ofApp::setRecord(){
-    
+void ofApp::saveRecording()
+{
     if(isRecording == true){
-        ofLogNotice("STOP Recording and save");
-        
+        isRecording = false;
+    }
+    if ( messageCount )
+    {
         string fileName = recordingDir+"/oscrecording_"+ofToString(ofGetUnixTime())+".bin";
-        
-        ofLogNotice("file: "+fileName+" size: "+ofToString(udpMessages.size()));
-        
-        // Status: we are saving to file, but only zero's
-        // somthing worn with data copy?
+        ofLogNotice("Save recording to disk: " + fileName + " messages size: " + ofToString(udpMessages.size() ) );
         
         ofstream myFile;
         myFile.open (ofToDataPath(fileName), ios::out | ios::binary);
@@ -400,19 +405,8 @@ void ofApp::setRecord(){
         
         //update file listing
         updateFileListing();
-    
-    }
-    else if(isRecording == false){
-        ofLogNotice("START Recording");
-        // clear vector before we start recording a new one
-        udpMessages.clear();
 
     }
-    
-    
-    isRecording = ! isRecording;
-    ofLogNotice("Record OSC data:"+ofToString(isRecording));
-    
 }
 
 
@@ -429,50 +423,56 @@ void ofApp::doGui() {
         float mainmenu_height = 0;
         if (ImGui::BeginMainMenuBar())
         {
-            
+            if (ImGui::BeginMenu("File"))
+            {
+                //if (ImGui::MenuItem("Open Recording..", "Ctrl+O")) { loadAFile(); }
+                //if (ImGui::MenuItem("Save Recording", "Ctrl+S"))   {saveData(); }
+                if (ImGui::MenuItem("About", "Ctrl+i")) { version_popup=true; }
+                if (ImGui::MenuItem("Exit", "Ctrl+W"))  { ofExit(0); }
+                ImGui::EndMenu();
+            }
             mainmenu_height = ImGui::GetWindowSize().y;
             ImGui::EndMainMenuBar();
         }
-        
-      
-        
+                
         // right dock
         ImGui::SetNextWindowPos(ImVec2( 0, mainmenu_height ));
         ImGui::SetNextWindowSize(ImVec2( 350, ofGetHeight()-mainmenu_height));
-        ImGui::Begin("rightpanel", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_HorizontalScrollbar);
-        
-        
-        ImGui::PushFont(fontSubTitle);
-        ImGui::Text("General settings:");
-        ImGui::PopFont();
-        ImGui::PushFont(fontDefault);
-        ImGui::Text("incoming OSC port: %s",ofToString(INCOMING_PORT).c_str());
-        ImGui::Text("outgoing OSC port: %s",ofToString(OUTGOING_PORT).c_str());
-        ImGui::Text("outgoing address: %s",ofToString(OUTGOING_IP).c_str());
-        ImGui::PopFont();
-        
-        
+        ImGui::Begin("rightpanel", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_HorizontalScrollbar );
+
+        if ( ImGui::CollapsingHeader("Recorder Settings", NULL, ImGuiTreeNodeFlags_DefaultOpen) )
+        {
+            ImGui::InputInt("OSC listen port", &oscListenPort, 1, 100 );
+            ImGui::InputText("OSC destination host", oscDestHost, 200);
+            ImGui::InputInt("OSC destination port", &oscDestPort, 1, 100 );
+
+            //ImGui::Text("incoming OSC port: %s",ofToString(INCOMING_PORT).c_str());
+            //ImGui::Text("outgoing OSC port: %s",ofToString(OUTGOING_PORT).c_str());
+            //ImGui::Text("outgoing address: %s",ofToString(OUTGOING_IP).c_str());
+        }
+
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
-        
-        
-        
-        
-        ImGui::PushFont(fontSubTitle);
+
         ImGui::Text("Record OSC");
-        ImGui::PopFont();
-        
-        
-        
+                
         // Toggle OSC recording
         // FIXME: make a proper toggle button
-        if ( ImGui::Button(ICON_FA_PLAY_CIRCLE " Record OSC") )
+        if ( ImGui::Button(ICON_FA_CIRCLE " Record OSC") )
         {
-            setRecord();
+            if ( ! isRecording )
+            {
+                setupOSCRecorder();
+                isRecording = true;
+            }
+            else
+            {
+                saveRecording();
+                destroyOSCRecorder();
+                isRecording = false;
+            }
         }
-        
-        
         
         ImGui::Spacing();
         ImGui::Separator();
@@ -511,8 +511,8 @@ void ofApp::doGui() {
             loadRecording(currentListBoxIndex);
         }
         
-        
-        
+        if ( version_popup )
+            ImGui::ShowDemoWindow(&version_popup);
         
         ImGui::End();
         
