@@ -511,8 +511,8 @@ void ofApp::doGui() {
             loadRecording(currentListBoxIndex);
         }
         
-        
-        
+        if ( version_popup )
+            ImGui::ShowDemoWindow(&version_popup);
         
         ImGui::End();
         
