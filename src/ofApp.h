@@ -48,15 +48,14 @@ class ofApp : public ofBaseApp{
         std::vector<oscMessageStruct> udpMessages;
         int counter;
     
-        //ofxOscReceiver receiver;
         ofxUDPManager udpReceiver;
         ofxUDPManager udpSender;
+        void setupOSCSender();
         void setupOSCRecorder();
         void processOSCRecorder();
         void destroyOSCRecorder();
 
         int messageCount;   // counter for received messages;
-
         int oscListenPort = 6000;
         int oscDestPort = 6001;
         char oscDestHost[200] =  "127.0.0.1";
