@@ -67,7 +67,7 @@ class ofApp : public ofBaseApp{
         //File display
         ofDirectory dir;
         string recordingDir;
-        std::vector<std::string> fileNames;
+        int loadedFileIndex = -1;
         std::vector<ofFile> files;
         void updateFileListing();
     
