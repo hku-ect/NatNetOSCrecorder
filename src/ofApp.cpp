@@ -466,13 +466,14 @@ void ofApp::doGui() {
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(1.0f, 0.7f, 0.7f));
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(1.0f, 0.8f, 0.8f));
         }
-
+        static float recordStart;
         if ( ImGui::Button(ICON_FA_CIRCLE " Record OSC") )
         {
             if ( ! isRecording )
             {
                 setupOSCRecorder();
                 isRecording = true;
+                recordStart = ImGui::GetTime();
             }
             else
             {
@@ -481,7 +482,12 @@ void ofApp::doGui() {
                 isRecording = false;
             }
         }
-        if (wasRecording) ImGui::PopStyleColor(3);
+        if (wasRecording)
+        {
+            ImGui::PopStyleColor(3);
+            ImGui::SameLine();
+            ImGui::Text("Recording %c %.2fs", "|/-\\"[(int)(ImGui::GetTime() / 0.05f) & 3], ImGui::GetTime()-recordStart );
+        }
 
         ImGui::Spacing();
         ImGui::Separator();
