@@ -34,7 +34,7 @@ void ofApp::setup(){
     ofSetFrameRate(30); // run at 60 fps
     ofSetVerticalSync(true);
     
-    recordingDir = "oscRecordings";
+    recordingDir = "oscrecordings";
     selectedRecoding = "none";
     
     // listen on the given port
@@ -162,16 +162,7 @@ void ofApp::update(){
 //--------------------------------------------------------------
 void ofApp::draw(){
     
-    if ( this->guiVisible ) { gui.draw(); }
-    
-    ofDrawBitmapString("Selected OSC recording", 400,70);
-    ofDrawBitmapString(selectedRecoding, 400,100);
-    ofDrawBitmapString("Frame: "+ofToString(counter)+"/"+ofToString(udpMessages.size()), 400,120);
-    
-    
-
-    
-    
+    if ( this->guiVisible ) { gui.draw(); }    
 }
 
 //--------------------------------------------------------------
@@ -236,8 +227,8 @@ void ofApp::loadRecording(int index){
     }
     infile.close();
     
+    loadedFileIndex = index;
     cout << "sizeOfVector: " << udpMessages.size() << endl;
-
 }
 
 //---------------------------ofToString(udpMessages.size()-----------------------------------
@@ -270,15 +261,8 @@ void ofApp::updateFileListing(){
     //update file listing
     dir.listDir();
     
-    fileNames.clear();
     files.clear();
     files = dir.getFiles();
-    for(size_t i=0; i<files.size(); i++)
-    {
-        fileNames.push_back(files[i].getFileName());
-    }
-
-    
 }
 
 //--------------------------------------------------------------
@@ -435,8 +419,51 @@ void ofApp::doGui() {
             ImGui::EndMainMenuBar();
         }
                 
-        // right dock
+        // recording panel
         ImGui::SetNextWindowPos(ImVec2( 0, mainmenu_height ));
+        ImGui::SetNextWindowSize(ImVec2( ofGetWidth()-350, ofGetHeight()-mainmenu_height));
+        ImGui::Begin("recordingspanel", NULL,  ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoBringToFrontOnFocus);
+        ImGui::Columns(4, "mycolumns"); // 4-ways, with border
+        ImGui::Separator();
+        ImGui::Text("ID"); ImGui::NextColumn();
+        ImGui::Text("Name"); ImGui::NextColumn();
+        ImGui::Text("Size"); ImGui::NextColumn();
+        ImGui::Text("Bla"); ImGui::NextColumn();
+        ImGui::Separator();
+        for (int i=0; i<files.size(); i++)
+        {
+            if (i == loadedFileIndex )
+            {
+                ImGui::PushStyleColor(ImGuiCol_Text, (ImVec4)ImColor(.6f, 0.6f, 1.0f));
+
+            }
+            ImGui::Text("%d", i); ImGui::NextColumn();
+            ImGui::Text("%s", files.at(i).getFileName().c_str() ); ImGui::NextColumn();
+            ImGui::Text("%d", files.at(i).getSize() ); ImGui::NextColumn();
+            ImGui::PushID(i);
+            if (i == loadedFileIndex )
+            {
+                ImGui::PopStyleColor(1);
+                if ( ImGui::Button(isPlaying ? ICON_FA_PAUSE_CIRCLE " Pause" : ICON_FA_PLAY_CIRCLE " Play" ) )
+                {
+                    isPlaying = !isPlaying;
+                }
+
+            }
+            else
+            if ( ImGui::Button(ICON_FA_UPLOAD " Load") )
+            {
+                    loadRecording(i);
+            }
+            ImGui::PopID();
+            ImGui::NextColumn();
+        }
+        ImGui::Columns(1);
+        ImGui::Separator();
+        ImGui::End();
+
+        // right dock
+        ImGui::SetNextWindowPos(ImVec2( ofGetWidth()-350, mainmenu_height ));
         ImGui::SetNextWindowSize(ImVec2( 350, ofGetHeight()-mainmenu_height));
         ImGui::Begin("rightpanel", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_HorizontalScrollbar );
 
@@ -445,10 +472,6 @@ void ofApp::doGui() {
             ImGui::InputInt("OSC listen port", &oscListenPort, 1, 100 );
             ImGui::InputText("OSC destination host", oscDestHost, 200);
             ImGui::InputInt("OSC destination port", &oscDestPort, 1, 100 );
-
-            //ImGui::Text("incoming OSC port: %s",ofToString(INCOMING_PORT).c_str());
-            //ImGui::Text("outgoing OSC port: %s",ofToString(OUTGOING_PORT).c_str());
-            //ImGui::Text("outgoing address: %s",ofToString(OUTGOING_IP).c_str());
         }
 
         ImGui::Spacing();
@@ -459,12 +482,21 @@ void ofApp::doGui() {
                 
         // Toggle OSC recording
         // FIXME: make a proper toggle button
+        bool wasRecording = isRecording;
+        if (wasRecording)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(1.0f, 0.6f, 0.6f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(1.0f, 0.7f, 0.7f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(1.0f, 0.8f, 0.8f));
+        }
+        static float recordStart;
         if ( ImGui::Button(ICON_FA_CIRCLE " Record OSC") )
         {
             if ( ! isRecording )
             {
                 setupOSCRecorder();
                 isRecording = true;
+                recordStart = ImGui::GetTime();
             }
             else
             {
@@ -473,7 +505,13 @@ void ofApp::doGui() {
                 isRecording = false;
             }
         }
-        
+        if (wasRecording)
+        {
+            ImGui::PopStyleColor(3);
+            ImGui::SameLine();
+            ImGui::Text("Recording %c %.2fs", "|/-\\"[(int)(ImGui::GetTime() / 0.05f) & 3], ImGui::GetTime()-recordStart );
+        }
+
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
@@ -500,20 +538,12 @@ void ofApp::doGui() {
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
-        
-        
-        //ofxImGui::VectorListBox allows for the use of a vector<string> as a data source
-        static int currentListBoxIndex = 0;
-        if(ofxImGui::VectorListBox("OSC recordings", &currentListBoxIndex, fileNames))
-        {
-            // Is triggered when selecting a file form the list
-            // Load file
-            loadRecording(currentListBoxIndex);
-        }
-        
+                
         if ( version_popup )
+        {
             ImGui::ShowDemoWindow(&version_popup);
-        
+            ImGui::ShowStyleEditor();
+        }
         ImGui::End();
         
                
