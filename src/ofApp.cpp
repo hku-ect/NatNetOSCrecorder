@@ -36,15 +36,7 @@ void ofApp::setup(){
     
     recordingDir = "oscrecordings";
     selectedRecoding = "none";
-    
-    // listen on the given port
-    ofLog() << "listening for osc messages on port " << INCOMING_PORT;
-
-    ofxUDPSettings sett;
-    
-    sett.sendTo(OUTGOING_IP, OUTGOING_PORT);
-    udpSender.Setup(sett);
-    
+        
     // SETUP GUI
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -72,6 +64,15 @@ void ofApp::setup(){
     dir.open(ofFilePath::getAbsolutePath(recordingDir));
     dir.allowExt("bin");
     updateFileListing();
+
+    setupOSCSender();
+}
+
+void ofApp::setupOSCSender() {
+
+    ofxUDPSettings sett;
+    sett.sendTo(oscDestHost, oscDestPort);
+    udpSender.Setup(sett);
 }
 
 void ofApp::setupOSCRecorder()
@@ -469,9 +470,24 @@ void ofApp::doGui() {
 
         if ( ImGui::CollapsingHeader("Recorder Settings", NULL, ImGuiTreeNodeFlags_DefaultOpen) )
         {
-            ImGui::InputInt("OSC listen port", &oscListenPort, 1, 100 );
-            ImGui::InputText("OSC destination host", oscDestHost, 200);
-            ImGui::InputInt("OSC destination port", &oscDestPort, 1, 100 );
+            if ( ImGui::InputInt("OSC listen port", &oscListenPort, 1, 100 ) )
+            {
+                if ( isRecording ) saveRecording();
+                destroyOSCRecorder();
+                setupOSCRecorder();
+            }
+            if ( ImGui::InputText("OSC destination host", oscDestHost, 200) )
+            {
+                if ( isPlaying ) isPlaying = false;
+                udpSender.Close();
+                setupOSCSender();
+            }
+            if ( ImGui::InputInt("OSC destination port", &oscDestPort, 1, 100 ) )
+            {
+                if ( isPlaying ) isPlaying = false;
+                udpSender.Close();
+                setupOSCSender();
+            }
         }
 
         ImGui::Spacing();
