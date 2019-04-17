@@ -444,10 +444,16 @@ void ofApp::doGui() {
             if (i == loadedFileIndex )
             {
                 ImGui::PopStyleColor(1);
+                if ( ImGui::Button(isPlaying ? ICON_FA_PAUSE_CIRCLE " Pause" : ICON_FA_PLAY_CIRCLE " Play" ) )
+                {
+                    isPlaying = !isPlaying;
+                }
+
             }
+            else
             if ( ImGui::Button(ICON_FA_UPLOAD " Load") )
             {
-                loadRecording(i);
+                    loadRecording(i);
             }
             ImGui::PopID();
             ImGui::NextColumn();
