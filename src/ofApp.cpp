@@ -427,7 +427,7 @@ void ofApp::doGui() {
         ImGui::Text("ID"); ImGui::NextColumn();
         ImGui::Text("Name"); ImGui::NextColumn();
         ImGui::Text("Size"); ImGui::NextColumn();
-        ImGui::Text("Bla"); ImGui::NextColumn();
+        ImGui::NextColumn();
         ImGui::Separator();
         for (int i=0; i<files.size(); i++)
         {
