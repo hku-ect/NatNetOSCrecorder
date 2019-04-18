@@ -26,8 +26,6 @@ static const ImWchar icon_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
 
 //--------------------------------------------------------------
 
-
-
 void ofApp::setup(){
     
     ofSetWindowTitle("oscRecorder");
@@ -429,7 +427,7 @@ void ofApp::doGui() {
         ImGui::Text("ID"); ImGui::NextColumn();
         ImGui::Text("Name"); ImGui::NextColumn();
         ImGui::Text("Size"); ImGui::NextColumn();
-        ImGui::Text("Bla"); ImGui::NextColumn();
+        ImGui::NextColumn();
         ImGui::Separator();
         for (int i=0; i<files.size(); i++)
         {
@@ -470,24 +468,26 @@ void ofApp::doGui() {
 
         if ( ImGui::CollapsingHeader("Recorder Settings", NULL, ImGuiTreeNodeFlags_DefaultOpen) )
         {
-            if ( ImGui::InputInt("OSC listen port", &oscListenPort, 1, 100 ) )
+            ImGui::PushItemWidth(150);
+            if ( ImGui::InputInt("Listen port", &oscListenPort, 1, 100 ) )
             {
                 if ( isRecording ) saveRecording();
                 destroyOSCRecorder();
                 setupOSCRecorder();
             }
-            if ( ImGui::InputText("OSC destination host", oscDestHost, 200) )
+            if ( ImGui::InputText("Destination host", oscDestHost, 200) )
             {
                 if ( isPlaying ) isPlaying = false;
                 udpSender.Close();
                 setupOSCSender();
             }
-            if ( ImGui::InputInt("OSC destination port", &oscDestPort, 1, 100 ) )
+            if ( ImGui::InputInt("Destination port", &oscDestPort, 1, 100 ) )
             {
                 if ( isPlaying ) isPlaying = false;
                 udpSender.Close();
                 setupOSCSender();
             }
+            ImGui::PopItemWidth();
         }
 
         ImGui::Spacing();
@@ -530,31 +530,7 @@ void ofApp::doGui() {
 
         ImGui::Spacing();
         ImGui::Separator();
-        ImGui::Spacing();
 
-        
-        ImGui::PushFont(fontSubTitle);
-        ImGui::Text("Play OSC");
-        ImGui::PopFont();
-        
-        // Play OSC recording
-        // This now sets a boolean isPlaying which loops through udpMessages array when set to true
-        if ( ImGui::Button(ICON_FA_PLAY_CIRCLE " Play last OSC recording") )
-        {
-            if(udpMessages.size() > 0){
-                isPlaying = !isPlaying;
-                ofLogNotice("Play status is: "+ofToString(isPlaying));
-            }
-            else
-            {
-                ofLogWarning("No recording present so, Nothing to playback!");
-            }
-        }
-        
-        ImGui::Spacing();
-        ImGui::Separator();
-        ImGui::Spacing();
-                
         if ( version_popup )
         {
             ImGui::ShowDemoWindow(&version_popup);
