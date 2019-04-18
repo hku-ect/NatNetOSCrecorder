@@ -1,6 +1,5 @@
 # This file allows testing your addon using travis CI servers to use it you'll need to
-# create an account in travis.org and enable your addon there. 
-#
+# create an account in travis.org and enable your addon there. #
 # By default it will test linux 64bit and osx against the master and stable OF branches. 
 # Other platforms can be enabled by uncommenting the corresponding sections.
 #
@@ -223,7 +222,6 @@ install:
       make Debug;
     fi
   - cd ~/openFrameworks/addons
-  - git clone --depth=1 https://github.com/hku-ect/ofxNatNet.git
   - git clone --depth=1 https://github.com/jvcleave/ofxImGui.git
 
 script:
@@ -266,4 +264,4 @@ deploy:
   overwrite: true
   on:
     tags: true
-    repo: hku-ect/NatNet2OSCbridge
+    repo: hku-ect/NatNetOSCrecorder
