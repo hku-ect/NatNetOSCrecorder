@@ -532,10 +532,10 @@ void ofApp::doGui() {
             for ( int j=s, k=6; k >= 0; j--, k-- )
             {
                 if (j<0) break;
-                arr[ k ] = udpMessages.at(j).size/150.f;
+                arr[ k ] = udpMessages.at(j).size;
             }
         }
-        ImGui::PlotHistogram("Histogram", arr, IM_ARRAYSIZE(arr), 0, NULL, 0.0f, 1.0f, ImVec2(0,80));
+        ImGui::PlotHistogram("Packets", arr, IM_ARRAYSIZE(arr), 0, NULL, 0.0f, 150.0f, ImVec2(0,80));
 
         ImGui::Spacing();
         ImGui::Separator();
