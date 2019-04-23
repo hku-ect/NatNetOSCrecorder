@@ -447,7 +447,7 @@ void ofApp::doGui() {
                 {
                     isPlaying = !isPlaying;
                 }
-
+                ImGui::SameLine(); ImGui::ProgressBar(counter/float(udpMessages.size()), ImVec2(-1,0), "" );
             }
             else
             if ( ImGui::Button(ICON_FA_UPLOAD " Load") )
