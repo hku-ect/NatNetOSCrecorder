@@ -135,8 +135,6 @@ void ofApp::update(){
     // only if: we are not recording we have recorded something.
     if(isPlaying == true && isRecording == false ){
         
-        ofLogNotice("Send: "+ofToString(counter)+" / "+ofToString(udpMessages.size()));
-        
         // output the udp message to the console
         cout << "PLAYBACK: " << udpMessages[counter].timestamp << udpMessages[counter].size << " " << udpMessages[counter].data << endl;
 
@@ -447,7 +445,7 @@ void ofApp::doGui() {
                 {
                     isPlaying = !isPlaying;
                 }
-
+                ImGui::SameLine(); ImGui::ProgressBar(counter/float(udpMessages.size()), ImVec2(-1,0), "" );
             }
             else
             if ( ImGui::Button(ICON_FA_UPLOAD " Load") )
@@ -495,7 +493,7 @@ void ofApp::doGui() {
         ImGui::Spacing();
 
         ImGui::Text("Record OSC");
-                
+
         // Toggle OSC recording
         // FIXME: make a proper toggle button
         bool wasRecording = isRecording;
@@ -521,12 +519,23 @@ void ofApp::doGui() {
                 isRecording = false;
             }
         }
+
+        static float arr[] = { 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f };
+
         if (wasRecording)
         {
             ImGui::PopStyleColor(3);
             ImGui::SameLine();
             ImGui::Text("Recording %c %.2fs", "|/-\\"[(int)(ImGui::GetTime() / 0.05f) & 3], ImGui::GetTime()-recordStart );
+
+            int s = udpMessages.size()-1;
+            for ( int j=s, k=6; k >= 0; j--, k-- )
+            {
+                if (j<0) break;
+                arr[ k ] = udpMessages.at(j).size;
+            }
         }
+        ImGui::PlotHistogram("Packets", arr, IM_ARRAYSIZE(arr), 0, NULL, 0.0f, 150.0f, ImVec2(0,80));
 
         ImGui::Spacing();
         ImGui::Separator();
